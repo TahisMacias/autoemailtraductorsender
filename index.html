@@ -349,10 +349,6 @@
             <option value="it">Italiano (it)</option>
           </select>
 
-          <button class="btn ghost" id="swap" type="button" title="Intercambiar idiomas">
-            ⇄ Swap
-          </button>
-
           <button class="btn" id="btn" type="button">
             <span id="btnIcon">🪄</span>
             <span id="btnText">Traducir</span>
@@ -433,12 +429,6 @@
       charCount.textContent = "0 caracteres";
     });
 
-    $("swap").addEventListener("click", () => {
-      const t = $("target");
-      t.value = (t.value === "es") ? "en" : "es";
-      toastShow("Idioma cambiado ✅");
-    });
-
     $("copy").addEventListener("click", async () => {
       const txt = out.textContent.trim();
       if (!txt) return toastShow("Nada para copiar");
@@ -496,3 +486,4 @@
   </script>
 </body>
 </html>
+
