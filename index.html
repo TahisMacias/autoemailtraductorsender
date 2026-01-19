@@ -636,7 +636,7 @@
 </head>
 
 <body>
-  <div class="version">v3.02</div>
+  <div class="version">v3.05</div>
   
   <div class="wrap">
     <div class="top">
@@ -653,6 +653,12 @@
     <div class="card">
       <div class="toolbar">
         <div class="controls">
+          <label for="backend">Backend</label>
+          <select id="backend" title="Motor de traducción">
+            <option value="ollama">Ollama IA</option>
+            <option value="n8n">n8n Workflow</option>
+          </select>
+
           <label for="target">Idioma destino</label>
           <select id="target" title="Idioma destino">
             <option value="es">Español (es)</option>
@@ -742,14 +748,12 @@
   </div>
 
   <script>
-    // Configuración local - sin CORS necesario
-    const OLLAMA_URL = "http://localhost:11434";
-    const USE_CORS_PROXY = false;
-    const CORS_PROXY = "https://corsproxy.io/?";
-
+    // Configuración: Las peticiones van al mismo servidor (proxy automático)
+    // En local: http://localhost:8080/api/chat
+    // En ngrok: https://tu-url.ngrok-free.app/api/chat
     function getApiUrl(endpoint) {
-      const fullUrl = `${OLLAMA_URL}${endpoint}`;
-      return USE_CORS_PROXY ? `${CORS_PROXY}${encodeURIComponent(fullUrl)}` : fullUrl;
+      // Usar la misma URL del sitio actual (el servidor hace proxy a Ollama)
+      return endpoint; // Ya incluye /api/chat
     }
 
     const $ = (id) => document.getElementById(id);
@@ -758,8 +762,20 @@
     const btnIcon = $("btnIcon");
     const out = $("out");
     const statusLeft = $("statusLeft");
+    const statusRight = $("statusRight");
     const charCount = $("charCount");
     const toast = $("toast");
+    const backendSelect = $("backend");
+
+    // Actualizar indicador al cambiar backend
+    backendSelect.addEventListener("change", () => {
+      const backend = backendSelect.value;
+      if (backend === "ollama") {
+        statusRight.textContent = "Fuente: Ollama (gemma3:1b) - Modo Rápido";
+      } else {
+        statusRight.textContent = "Fuente: n8n Workflow - Personalizado";
+      }
+    });
 
     function toastShow(msg){
       toast.textContent = msg;
@@ -805,6 +821,7 @@
     btn.addEventListener("click", async () => {
       const text = $("text").value.trim();
       const target = $("target").value;
+      const backend = backendSelect.value;
 
       if (!text){
         out.innerHTML = "<span style='color: var(--danger); font-weight:700;'>Escribe un texto para traducir.</span>";
@@ -813,7 +830,7 @@
       }
 
       setLoading(true);
-      statusLeft.textContent = "Traduciendo con IA...";
+      statusLeft.textContent = backend === "ollama" ? "Traduciendo con IA..." : "Procesando con n8n...";
 
       try{
         // Mapa de códigos de idioma a nombres completos
@@ -832,18 +849,21 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
 
-        // Llamada a Ollama para traducción
-        const res = await fetch(getApiUrl("/api/chat"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "gemma3:1b",
-            messages: [
-              {
-                role: "system",
-                content: `Eres un traductor profesional. Tu única tarea es traducir el texto que te proporcionen al idioma ${targetLang}. Responde ÚNICAMENTE con la traducción, sin explicaciones, sin comentarios adicionales, solo el texto traducido.`
+        let res, translation;
+
+        if (backend === "ollama") {
+          // Llamada a Ollama para traducción
+          res = await fetch(getApiUrl("/api/chat"), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              model: "gemma3:1b",
+              messages: [
+                {
+                  role: "system",
+                  content: `Eres un traductor profesional. Tu única tarea es traducir el texto que te proporcionen al idioma ${targetLang}. Responde ÚNICAMENTE con la traducción, sin explicaciones, sin comentarios adicionales, solo el texto traducido.`
               },
               {
                 role: "user",
@@ -864,10 +884,40 @@
           statusLeft.innerHTML = "<span class='error'>Error " + res.status + "</span>";
         } else {
           const data = await res.json();
-          const translation = data.message?.content || "(sin traducción)";
+          translation = data.message?.content || "(sin traducción)";
           out.textContent = translation;
           statusLeft.innerHTML = "<span class='ok'>✓</span> Traducido a <b>"+ targetLang +"</b>";
         }
+      } else {
+        // Llamada a n8n webhook
+        // NOTA: Debes crear un workflow en n8n con un webhook que acepte {text, target}
+        res = await fetch("/webhook/traducir", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            text: text,
+            target: target,
+            targetLang: targetLang
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok){
+          const errorText = await res.text().catch(() => "");
+          console.error("Error n8n:", res.status, res.statusText, errorText);
+          out.innerHTML = "<span class='error'>Error en n8n (" + res.status + "): " + (errorText || "Workflow no configurado") + "</span>";
+          statusLeft.innerHTML = "<span class='error'>Error n8n</span>";
+        } else {
+          const data = await res.json();
+          translation = data.translation || data.result || data.text || "(sin traducción)";
+          out.textContent = translation;
+          statusLeft.innerHTML = "<span class='ok'>✓</span> Traducido con n8n a <b>"+ targetLang +"</b>";
+        }
+      }
       }catch(e){
         console.error("Error de traducción completo:", e);
         if (e.name === 'AbortError') {
