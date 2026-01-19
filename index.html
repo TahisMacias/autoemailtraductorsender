@@ -320,6 +320,270 @@
     transition: opacity .18s ease;
   }
   .toast.show{ opacity: 1; }
+
+  /* Chat Widget */
+  .chat-widget{
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+  }
+
+  .chat-button{
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), #a58cff);
+    border: 0;
+    box-shadow: 0 18px 50px rgba(124,92,255,.35), 0 0 0 0 rgba(124,92,255,.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    transition: transform .15s ease, box-shadow .15s ease;
+    animation: pulse 2s infinite;
+  }
+  .chat-button:hover{
+    transform: scale(1.05);
+    box-shadow: 0 20px 60px rgba(124,92,255,.45), 0 0 0 0 rgba(124,92,255,.4);
+  }
+  .chat-button:active{
+    transform: scale(0.95);
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 18px 50px rgba(124,92,255,.35), 0 0 0 0 rgba(124,92,255,.4); }
+    70% { box-shadow: 0 18px 50px rgba(124,92,255,.35), 0 0 0 12px rgba(124,92,255,0); }
+    100% { box-shadow: 0 18px 50px rgba(124,92,255,.35), 0 0 0 0 rgba(124,92,255,0); }
+  }
+
+  .chat-window{
+    position: absolute;
+    bottom: 80px;
+    right: 0;
+    width: 380px;
+    height: 550px;
+    background: linear-gradient(180deg, rgba(15,18,38,.96), rgba(11,14,30,.98));
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 20px;
+    box-shadow: 0 28px 80px rgba(0,0,0,.60);
+    backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    pointer-events: none;
+    transition: opacity .25s ease, transform .25s ease;
+  }
+  .chat-window.open{
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+  }
+
+  .chat-header{
+    padding: 18px 20px;
+    background: linear-gradient(135deg, rgba(124,92,255,.18), rgba(46,229,157,.12));
+    border-bottom: 1px solid rgba(255,255,255,.12);
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .chat-header-info{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .chat-avatar{
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), rgba(46,229,157,.88));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 8px 20px rgba(124,92,255,.25);
+  }
+
+  .chat-header-text h3{
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+  }
+  .chat-header-text p{
+    margin: 2px 0 0;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .online-dot{
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: 0 0 0 4px rgba(46,229,157,.15);
+  }
+
+  .chat-close{
+    width: 32px;
+    height: 32px;
+    border: 0;
+    background: rgba(255,255,255,.08);
+    border-radius: 8px;
+    color: rgba(244,246,255,.80);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: background .15s ease;
+  }
+  .chat-close:hover{
+    background: rgba(255,255,255,.14);
+  }
+
+  .chat-messages{
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .chat-message{
+    display: flex;
+    gap: 10px;
+    animation: messageSlide .3s ease;
+  }
+  @keyframes messageSlide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .chat-message.user{
+    flex-direction: row-reverse;
+  }
+
+  .message-avatar{
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(124,92,255,.55), rgba(46,229,157,.45));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .chat-message.user .message-avatar{
+    background: linear-gradient(135deg, rgba(46,229,157,.55), rgba(124,92,255,.45));
+  }
+
+  .message-bubble{
+    max-width: 70%;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.10);
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  }
+
+  .chat-message.user .message-bubble{
+    background: linear-gradient(135deg, rgba(124,92,255,.35), rgba(124,92,255,.25));
+    border-color: rgba(124,92,255,.40);
+  }
+
+  .message-time{
+    font-size: 10px;
+    color: rgba(244,246,255,.50);
+    margin-top: 4px;
+  }
+
+  .chat-input-area{
+    padding: 16px;
+    border-top: 1px solid rgba(255,255,255,.10);
+    background: rgba(6,8,18,.55);
+    border-radius: 0 0 20px 20px;
+  }
+
+  .chat-input-wrapper{
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .chat-input{
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(10,12,24,.65);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    resize: none;
+    max-height: 100px;
+    font-family: inherit;
+    line-height: 1.4;
+    transition: border-color .15s ease;
+  }
+  .chat-input:focus{
+    border-color: rgba(124,92,255,.55);
+  }
+
+  .chat-send{
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #a58cff);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: transform .08s ease, filter .15s ease;
+    box-shadow: 0 8px 20px rgba(124,92,255,.25);
+    flex-shrink: 0;
+  }
+  .chat-send:hover{
+    filter: brightness(1.1);
+  }
+  .chat-send:active{
+    transform: scale(0.95);
+  }
+  .chat-send:disabled{
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  @media (max-width: 480px){
+    .chat-window{
+      width: calc(100vw - 24px);
+      height: calc(100vh - 100px);
+      bottom: 80px;
+      right: 12px;
+    }
+    .chat-widget{
+      right: 12px;
+      bottom: 12px;
+    }
+  }
 </style>
 </head>
 
@@ -391,6 +655,49 @@
   </div>
 
   <div id="toast" class="toast">Copiado ✅</div>
+
+  <!-- Chat Widget -->
+  <div class="chat-widget">
+    <button class="chat-button" id="chatToggle" type="button" aria-label="Abrir chat">
+      💬
+    </button>
+
+    <div class="chat-window" id="chatWindow">
+      <div class="chat-header">
+        <div class="chat-header-info">
+          <div class="chat-avatar">🤖</div>
+          <div class="chat-header-text">
+            <h3>Soporte IA</h3>
+            <p><span class="online-dot"></span>En línea</p>
+          </div>
+        </div>
+        <button class="chat-close" id="chatClose" type="button" aria-label="Cerrar chat">✕</button>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-message">
+          <div class="message-avatar">🤖</div>
+          <div>
+            <div class="message-bubble">
+              ¡Hola! 👋 Soy tu asistente virtual. ¿En qué puedo ayudarte hoy?
+            </div>
+            <div class="message-time">Ahora</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="chat-input-wrapper">
+          <textarea 
+            class="chat-input" 
+            id="chatInput" 
+            placeholder="Escribe tu mensaje..."
+            rows="1"></textarea>
+          <button class="chat-send" id="chatSend" type="button" aria-label="Enviar mensaje">📤</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     const WEBHOOK_URL = "https://sihat.app.n8n.cloud/webhook/translate";
@@ -482,6 +789,49 @@
       }finally{
         setLoading(false);
       }
+    });
+
+    // Chat Widget functionality
+    const chatToggle = $("chatToggle");
+    const chatWindow = $("chatWindow");
+    const chatClose = $("chatClose");
+    const chatMessages = $("chatMessages");
+    const chatInput = $("chatInput");
+    const chatSend = $("chatSend");
+
+    function toggleChat(){
+      chatWindow.classList.toggle("open");
+      if(chatWindow.classList.contains("open")){
+        chatInput.focus();
+      }
+    }
+
+    chatToggle.addEventListener("click", toggleChat);
+    chatClose.addEventListener("click", toggleChat);
+
+    // Auto-resize textarea
+    chatInput.addEventListener("input", function(){
+      this.style.height = "auto";
+      this.style.height = Math.min(this.scrollHeight, 100) + "px";
+    });
+
+    // Enviar mensaje con Enter (Shift+Enter para nueva línea)
+    chatInput.addEventListener("keydown", function(e){
+      if(e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        chatSend.click();
+      }
+    });
+
+    // Función para enviar mensaje (aquí agregarás la lógica después)
+    chatSend.addEventListener("click", function(){
+      const message = chatInput.value.trim();
+      if(!message) return;
+
+      // Aquí agregarás la funcionalidad después
+      console.log("Mensaje:", message);
+      chatInput.value = "";
+      chatInput.style.height = "auto";
     });
   </script>
 </body>
