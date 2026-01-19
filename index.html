@@ -899,10 +899,15 @@
       const message = chatInput.value.trim();
       if(!message) return;
 
-      // Mostrar mensaje del usuario
-      addMessage(message, true);
+      // Guardar el mensaje antes de limpiar
+      const userMessage = message;
+      
+      // Limpiar input primero
       chatInput.value = "";
       chatInput.style.height = "auto";
+
+      // Mostrar mensaje del usuario
+      addMessage(userMessage, true);
 
       // Deshabilitar botón mientras se procesa
       chatSend.disabled = true;
