@@ -756,7 +756,7 @@
 </head>
 
 <body>
-  <div class="version">v1.03</div>
+  <div class="version">v1.04</div>
   
   <div class="wrap">
     <div class="top">
@@ -940,6 +940,10 @@
 
         const targetLang = languages[target] || target;
 
+        // Timeout personalizado para la petición
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
+
         // Llamada a Ollama para traducción
         const res = await fetch(`${OLLAMA_URL}/api/chat`, {
           method: "POST",
@@ -959,13 +963,17 @@
               }
             ],
             stream: false
-          })
+          }),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!res.ok){
           const errorText = await res.text().catch(() => "");
-          out.innerHTML = "<span class='error'>Error en el servidor: " + (res.statusText || "Error desconocido") + "</span>";
-          statusLeft.innerHTML = "<span class='error'>Error.</span>";
+          console.error("Error del servidor:", res.status, res.statusText, errorText);
+          out.innerHTML = "<span class='error'>Error en el servidor (" + res.status + "): " + (errorText || res.statusText || "Error desconocido") + "</span>";
+          statusLeft.innerHTML = "<span class='error'>Error " + res.status + "</span>";
         } else {
           const data = await res.json();
           const translation = data.message?.content || "(sin traducción)";
@@ -973,9 +981,14 @@
           statusLeft.innerHTML = "<span class='ok'>✓</span> Traducido a <b>"+ targetLang +"</b>";
         }
       }catch(e){
-        console.error("Error de traducción:", e);
-        out.innerHTML = "<span class='error'>No se pudo conectar al servidor de Ollama. Verifica que el servicio esté activo.</span>";
-        statusLeft.innerHTML = "<span class='error'>Sin conexión.</span>";
+        console.error("Error de traducción completo:", e);
+        if (e.name === 'AbortError') {
+          out.innerHTML = "<span class='error'>⏱️ El servidor tardó demasiado en responder. Intenta con un texto más corto.</span>";
+          statusLeft.innerHTML = "<span class='error'>Timeout.</span>";
+        } else {
+          out.innerHTML = "<span class='error'>❌ Error de conexión: " + e.message + "<br>Verifica la consola del navegador (F12) para más detalles.</span>";
+          statusLeft.innerHTML = "<span class='error'>Sin conexión.</span>";
+        }
       }finally{
         setLoading(false);
       }
