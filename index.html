@@ -756,7 +756,7 @@
 </head>
 
 <body>
-  <div class="version">v1.04</div>
+  <div class="version">v1.05</div>
   
   <div class="wrap">
     <div class="top">
@@ -862,7 +862,15 @@
   </div>
 
   <script>
+    // Usando proxy CORS para bypasear restricciones
     const OLLAMA_URL = "https://fruity-chicken-study.loca.lt";
+    const USE_CORS_PROXY = true; // Cambiar a false si el servidor ya tiene CORS habilitado
+    const CORS_PROXY = "https://corsproxy.io/?";
+
+    function getApiUrl(endpoint) {
+      const fullUrl = `${OLLAMA_URL}${endpoint}`;
+      return USE_CORS_PROXY ? `${CORS_PROXY}${encodeURIComponent(fullUrl)}` : fullUrl;
+    }
 
     const $ = (id) => document.getElementById(id);
     const btn = $("btn");
@@ -945,7 +953,7 @@
         const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
 
         // Llamada a Ollama para traducción
-        const res = await fetch(`${OLLAMA_URL}/api/chat`, {
+        const res = await fetch(getApiUrl("/api/chat"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -1112,7 +1120,7 @@
 
       try {
         // Llamada a Ollama
-        const response = await fetch(`${OLLAMA_URL}/api/chat`, {
+        const response = await fetch(getApiUrl("/api/chat"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
