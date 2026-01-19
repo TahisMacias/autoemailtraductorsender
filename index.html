@@ -756,7 +756,7 @@
 </head>
 
 <body>
-  <div class="version">v1.14</div>
+  <div class="version">v2.00 - Local</div>
   
   <div class="wrap">
     <div class="top">
@@ -862,14 +862,14 @@
   </div>
 
   <script>
-    // Usando proxy CORS para bypasear restricciones
-    const OLLAMA_URL = "https://unbroke-unexplodable-lilly.ngrok-free.dev";
-    const USE_CORS_PROXY = false; // Cambiar a false si el servidor ya tiene CORS habilitado
-    const CORS_PROXY = "https://thingproxy.freeboard.io/fetch/";
+    // Configuración local - sin CORS necesario
+    const OLLAMA_URL = "http://localhost:11434";
+    const USE_CORS_PROXY = false;
+    const CORS_PROXY = "https://corsproxy.io/?";
 
     function getApiUrl(endpoint) {
       const fullUrl = `${OLLAMA_URL}${endpoint}`;
-      return USE_CORS_PROXY ? `${CORS_PROXY}${fullUrl}` : fullUrl;
+      return USE_CORS_PROXY ? `${CORS_PROXY}${encodeURIComponent(fullUrl)}` : fullUrl;
     }
 
     const $ = (id) => document.getElementById(id);
