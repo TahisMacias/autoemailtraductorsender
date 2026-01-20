@@ -1,0 +1,256 @@
+{
+  "name": "Chat Assistant with Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-chat",
+      "name": "Webhook Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "webhookId": "chat-email-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analizar si el usuario pide enviar traducción por email\nconst message = $input.item.json.body.message || '';\nconst lowerMsg = message.toLowerCase();\n\n// Extraer email del destinatario primero\nconst emailMatch = message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)/);\nconst toEmail = emailMatch ? emailMatch[1] : null;\n\n// Extraer asunto si existe (ejemplo: \"asunto: Mi mensaje\" o \"subject: My message\")\nconst subjectMatch = message.match(/(?:asunto|subject):\\s*(.+?)(?=\\s+al\\s+correo|\\s+a\\s+|$)/i);\nconst customSubject = subjectMatch ? subjectMatch[1].trim() : null;\n\n// Detectar solicitud de email - más flexible\nconst emailKeywords = ['envía', 'envia', 'enviar', 'manda', 'mandar', 'envíame', 'enviame', 'enviá', 'envia'];\nconst translationKeywords = ['traducción', 'traduccion', 'email', 'correo', 'mail', 'mensaje'];\n\nconst hasEmailAction = emailKeywords.some(word => lowerMsg.includes(word));\nconst hasEmailMention = translationKeywords.some(word => lowerMsg.includes(word)) || toEmail !== null;\n\nconst isEmailRequest = (hasEmailAction && hasEmailMention) || (toEmail !== null && lowerMsg.length < 100);\n\nreturn {\n  json: {\n    message: message,\n    action: (isEmailRequest && toEmail) ? 'send_translation' : 'chat',\n    toEmail: toEmail,\n    customSubject: customSubject,\n    debug: {\n      hasEmailAction: hasEmailAction,\n      hasEmailMention: hasEmailMention,\n      emailFound: toEmail !== null\n    }\n  }\n};"
+      },
+      "id": "analyze-request",
+      "name": "Analyze Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "is-send-translation",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "send_translation",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-action",
+      "name": "Is Send Translation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0"
+        },
+        "filtersUI": {
+          "values": []
+        },
+        "options": {
+          "range": "A2:E",
+          "dataLocationOnSheet": "headerRow"
+        }
+      },
+      "id": "read-sheets",
+      "name": "Read Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [900, 200],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener la última fila del Sheets\nconst items = $input.all();\n\nif (!items || items.length === 0) {\n  throw new Error('No hay traducciones guardadas');\n}\n\n// Tomar la última fila directamente (la más reciente)\nconst lastRow = items[items.length - 1].json;\n\n// Obtener el email y asunto del nodo Analyze Request\nconst analyzeData = $('Analyze Request').first().json;\nconst toEmail = analyzeData.toEmail || 'destinatario@example.com';\nconst customSubject = analyzeData.customSubject;\n\n// Intentar leer los datos usando diferentes posibles nombres (incluyendo MAYÚSCULAS)\nconst originalText = lastRow['Texto Original'] || lastRow['TEXTO ORIGINAL'] || lastRow.B || lastRow['B'] || '';\nconst translation = lastRow['Traducción'] || lastRow['Traduccion'] || lastRow['TRADUCCION'] || lastRow.C || lastRow['C'] || '';\nconst targetLang = lastRow['Idioma Destino'] || lastRow['IDIOMA DESTINO'] || lastRow.D || lastRow['D'] || '';\nconst timestamp = lastRow['Fecha'] || lastRow['FECHA'] || lastRow.A || lastRow['A'] || '';\nconst model = lastRow['Modelo'] || lastRow['MODELO'] || lastRow.E || lastRow['E'] || '';\n\n// Generar saludo por defecto según idioma destino si no hay asunto personalizado\nconst greetings = {\n  'inglés': 'Hello!',\n  'ingles': 'Hello!',\n  'english': 'Hello!',\n  'español': '¡Hola!',\n  'espanol': '¡Hola!',\n  'spanish': '¡Hola!',\n  'francés': 'Bonjour!',\n  'frances': 'Bonjour!',\n  'french': 'Bonjour!',\n  'alemán': 'Guten Tag!',\n  'aleman': 'Guten Tag!',\n  'german': 'Guten Tag!',\n  'portugués': 'Olá!',\n  'portugues': 'Olá!',\n  'portuguese': 'Olá!',\n  'italiano': 'Ciao!',\n  'italian': 'Ciao!',\n  'chino': '你好!',\n  'chinese': '你好!',\n  'japonés': 'こんにちは!',\n  'japones': 'こんにちは!',\n  'japanese': 'こんにちは!'\n};\n\nconst defaultGreeting = greetings[targetLang.toLowerCase()] || 'Hello!';\nconst subject = customSubject || defaultGreeting;\n\nreturn {\n  json: {\n    originalText: originalText,\n    translation: translation,\n    targetLang: targetLang,\n    timestamp: timestamp,\n    model: model,\n    toEmail: toEmail,\n    subject: subject\n  },\n  pairedItem: items[items.length - 1].pairedItem\n};"
+      },
+      "id": "get-last-translation",
+      "name": "Get Last Translation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.toEmail || 'destinatario@example.com' }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.translation }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [1350, 200],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-cred",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { response: '✅ Email enviado a ' + $('Get Last Translation').item.json.toEmail + ' con la última traducción.' } }}",
+        "options": {}
+      },
+      "id": "respond-email-sent",
+      "name": "Respond Email Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1500, 200]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:11434/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"qwen3:4b\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un asistente amigable. Puedes ayudar con consultas generales. Si alguien quiere enviar una traducción por email, debe especificar el correo del destinatario.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $('Analyze Request').item.json.message\n    }\n  ],\n  \"stream\": false\n} }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ollama-chat",
+      "name": "Call Ollama Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { response: $json.message.content || 'Lo siento, no pude generar una respuesta.' } }}",
+        "options": {}
+      },
+      "id": "respond-chat",
+      "name": "Respond Chat",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1120, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Chat": {
+      "main": [
+        [
+          {
+            "node": "Analyze Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Request": {
+      "main": [
+        [
+          {
+            "node": "Is Send Translation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Send Translation?": {
+      "main": [
+        [
+          {
+            "node": "Read Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Ollama Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Get Last Translation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Translation": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama Chat": {
+      "main": [
+        [
+          {
+            "node": "Respond Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "chat-email-v1",
+  "id": "ChatWithEmail",
+  "tags": []
+}

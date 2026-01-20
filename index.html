@@ -642,7 +642,7 @@
 </head>
 
 <body>
-  <div class="version">v3.12</div>
+  <div class="version">v3.13</div>
   
   <div class="wrap">
     <div class="top">
@@ -705,7 +705,7 @@
 
       <div class="status">
         <div id="statusLeft"></div>
-        <div id="statusRight">Fuente: Ollama (gemma3:1b) - Modo Rápido</div>
+        <div id="statusRight">Fuente: n8n + Ollama (qwen2.5:0.5b) - Ultra Rápido</div>
       </div>
     </div>
   </div>
@@ -845,25 +845,17 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
 
-        // Llamada a Ollama para traducción
-        const res = await fetch(getApiUrl("/api/chat"), {
+        // Llamada a n8n webhook para traducción con Ollama
+        const prompt = `Eres un traductor profesional. Traduce el siguiente texto al idioma ${targetLang}. Responde ÚNICAMENTE con la traducción, sin explicaciones, sin comentarios adicionales, solo el texto traducido.\n\nTexto a traducir: ${text}`;
+        
+        const res = await fetch("/webhook/translate", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
             body: JSON.stringify({
-              model: "gemma3:1b",
-              messages: [
-                {
-                  role: "system",
-                  content: `Eres un traductor profesional. Tu única tarea es traducir el texto que te proporcionen al idioma ${targetLang}. Responde ÚNICAMENTE con la traducción, sin explicaciones, sin comentarios adicionales, solo el texto traducido.`
-              },
-              {
-                role: "user",
-                content: text
-              }
-            ],
-            stream: false
+              prompt: prompt,
+              model: "qwen2.5:0.5b"
           }),
           signal: controller.signal
         });
@@ -876,10 +868,24 @@
           out.innerHTML = "<span class='error'>Error en el servidor (" + res.status + "): " + (errorText || res.statusText || "Error desconocido") + "</span>";
           statusLeft.innerHTML = "<span class='error'>Error " + res.status + "</span>";
         } else {
-          const data = await res.json();
-          const translation = data.message?.content || "(sin traducción)";
-          out.textContent = translation;
-          statusLeft.innerHTML = "<span class='ok'>✓</span> Traducido a <b>"+ targetLang +"</b>";
+          const responseText = await res.text();
+          console.log("📄 Respuesta del traductor:", responseText);
+          
+          if(!responseText || responseText.trim() === ''){
+            out.innerHTML = "<span class='error'>⚠️ El servidor no devolvió respuesta. Verifica que el workflow de traducción esté activo en n8n.</span>";
+            statusLeft.innerHTML = "<span class='error'>Sin respuesta</span>";
+          } else {
+            try {
+              const data = JSON.parse(responseText);
+              const translation = data.response || "(sin traducción)";
+              out.textContent = translation;
+              statusLeft.innerHTML = "<span class='ok'>✓ n8n + Ollama</span> → <b>"+ targetLang +"</b>";
+            } catch(jsonError) {
+              console.error("Error parseando JSON:", jsonError);
+              out.innerHTML = "<span class='error'>Error: respuesta inválida del servidor.</span>";
+              statusLeft.innerHTML = "<span class='error'>Error de formato</span>";
+            }
+          }
         }
       }catch(e){
         console.error("Error de traducción completo:", e);
@@ -1013,6 +1019,7 @@
 
       try {
         // Llamada a n8n webhook para chat
+        console.log("📤 Enviando a /webhook/chat:", userMessage);
         const response = await fetch("/webhook/chat", {
           method: "POST",
           headers: {
@@ -1024,22 +1031,41 @@
           })
         });
 
+        console.log("📥 Respuesta:", response.status, response.statusText);
+
         // Remover indicador de escritura
         const typing = document.getElementById("typing-indicator");
         if(typing) typing.remove();
 
         if(response.ok){
-          const data = await response.json();
-          const aiResponse = data.response || data.message || data.text || "Lo siento, no pude generar una respuesta.";
-          addMessage(aiResponse);
+          const responseText = await response.text();
+          console.log("📄 Respuesta raw:", responseText);
+          
+          if(!responseText || responseText.trim() === ''){
+            console.warn("⚠️ Respuesta vacía del servidor");
+            addMessage("El servidor procesó tu mensaje pero no devolvió respuesta. Revisa los logs de n8n.");
+          } else {
+            try {
+              const data = JSON.parse(responseText);
+              console.log("✅ Datos recibidos:", data);
+              const aiResponse = data.response || data.message || data.text || "Lo siento, no pude generar una respuesta.";
+              addMessage(aiResponse);
+            } catch(jsonError) {
+              console.error("❌ Error parseando JSON:", jsonError);
+              console.log("Respuesta recibida:", responseText);
+              addMessage("Error: El servidor devolvió una respuesta inválida.");
+            }
+          }
         } else {
-          addMessage("Lo siento, hubo un error al conectar con el servidor. Por favor intenta nuevamente.");
+          const errorText = await response.text();
+          console.error("❌ Error del servidor:", errorText);
+          addMessage("Lo siento, hubo un error al conectar con el servidor. Código: " + response.status);
         }
       } catch(error) {
-        console.error("Error:", error);
+        console.error("💥 Error:", error);
         const typing = document.getElementById("typing-indicator");
         if(typing) typing.remove();
-        addMessage("No pude conectarme al servidor. Verifica que n8n esté activo y el workflow configurado.");
+        addMessage("No pude conectarme al servidor. Error: " + error.message);
       } finally {
         chatSend.disabled = false;
       }

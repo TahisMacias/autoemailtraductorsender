@@ -1,0 +1,585 @@
+{
+  "name": "Chat Assistant with Email",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "translate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "6bfc5a6f-5b96-4ee8-babb-3595dcc80ea4",
+      "name": "Webhook Translate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1648,
+        2672
+      ],
+      "webhookId": "translator-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "original_text",
+              "name": "original_text",
+              "value": "={{ $json.body.prompt.match(/Texto a traducir: (.+)$/s)?.[1]?.trim() || $json.body.prompt.split('\\n').pop()?.trim() || $json.body.prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "target_lang",
+              "name": "target_lang",
+              "value": "={{ $json.body.prompt.match(/al idioma ([\\wáéíóúñ]+)/i)?.[1] || 'desconocido' }}",
+              "type": "string"
+            },
+            {
+              "id": "full_prompt",
+              "name": "full_prompt",
+              "value": "={{ $json.body.prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "model",
+              "name": "model",
+              "value": "={{ $json.body.model || 'qwen2.5:0.5b' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ae106729-cf6f-49fe-82b1-9bee7fb90606",
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1872,
+        2672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": $json.model,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un traductor profesional. Tu tarea es traducir el texto que te proporcionen al idioma solicitado. Responde ÚNICAMENTE con la traducción, sin explicaciones adicionales.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.full_prompt\n    }\n  ],\n  \"stream\": false\n} }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "c9f1c90c-05b1-46be-90c2-bbdc27ca69e4",
+      "name": "Call Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2096,
+        2672
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "Fecha",
+              "name": "Fecha",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "Texto Original",
+              "name": "Texto Original",
+              "value": "={{ $('Extract Data').item.json.original_text }}",
+              "type": "string"
+            },
+            {
+              "id": "Traducción",
+              "name": "Traducción",
+              "value": "={{ $json.message.content }}",
+              "type": "string"
+            },
+            {
+              "id": "Idioma Destino",
+              "name": "Idioma Destino",
+              "value": "={{ $('Extract Data').item.json.target_lang }}",
+              "type": "string"
+            },
+            {
+              "id": "Modelo",
+              "name": "Modelo",
+              "value": "={{ $('Extract Data').item.json.model }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8cf583c4-2cd5-4591-8708-2fc1b7b007fa",
+      "name": "Prepare Sheet Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        2672
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1zid_kUKYTMmmKeiTutWunjT2sU2dcqDCAwoSnJivxU4",
+          "mode": "list",
+          "cachedResultName": "traduccion",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zid_kUKYTMmmKeiTutWunjT2sU2dcqDCAwoSnJivxU4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "FECHA": "={{ $json.Fecha }}",
+            "TEXTO ORIGINAL": "={{ $json['Texto Original'] }}",
+            "TRADUCCION": "={{ $json['Traducción'] }}",
+            "IDIOMA DESTINO": "={{ $json['Idioma Destino'] }}",
+            "MODELO": "={{ $json.Modelo }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "FECHA",
+              "displayName": "FECHA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TEXTO ORIGINAL",
+              "displayName": "TEXTO ORIGINAL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "IDIOMA DESTINO",
+              "displayName": "IDIOMA DESTINO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "TRADUCCION",
+              "displayName": "TRADUCCION",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "MODELO",
+              "displayName": "MODELO",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e85c4cf0-61bd-45aa-be78-ffa1cf75c54f",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        2528,
+        2672
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xw2ga8T1IxvQ0HzI",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { response: $('Prepare Sheet Data').item.json['Traducción'] || 'Error en traducción' } }}",
+        "options": {}
+      },
+      "id": "8ae1d514-1b00-406e-a452-4bc2a5cfd828",
+      "name": "Respond Translation",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2752,
+        2672
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a5e7ad5c-fdc5-46e3-8e30-4bfab4311eaa",
+      "name": "Webhook Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1552,
+        2336
+      ],
+      "webhookId": "chat-email-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Analizar si el usuario pide enviar traducción por email\nconst message = $input.item.json.body.message || '';\nconst lowerMsg = message.toLowerCase();\n\n// Extraer email del destinatario primero\nconst emailMatch = message.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z0-9_-]+)/);\nconst toEmail = emailMatch ? emailMatch[1] : null;\n\n// Extraer asunto si existe (ejemplo: \"asunto: Mi mensaje\" o \"subject: My message\")\nconst subjectMatch = message.match(/(?:asunto|subject):\\s*(.+?)(?=\\s+al\\s+correo|\\s+a\\s+|$)/i);\nconst customSubject = subjectMatch ? subjectMatch[1].trim() : null;\n\n// Detectar solicitud de email - más flexible\nconst emailKeywords = ['envía', 'envia', 'enviar', 'manda', 'mandar', 'envíame', 'enviame', 'enviá', 'envia'];\nconst translationKeywords = ['traducción', 'traduccion', 'email', 'correo', 'mail', 'mensaje'];\n\nconst hasEmailAction = emailKeywords.some(word => lowerMsg.includes(word));\nconst hasEmailMention = translationKeywords.some(word => lowerMsg.includes(word)) || toEmail !== null;\n\nconst isEmailRequest = (hasEmailAction && hasEmailMention) || (toEmail !== null && lowerMsg.length < 100);\n\nreturn {\n  json: {\n    message: message,\n    action: (isEmailRequest && toEmail) ? 'send_translation' : 'chat',\n    toEmail: toEmail,\n    customSubject: customSubject,\n    debug: {\n      hasEmailAction: hasEmailAction,\n      hasEmailMention: hasEmailMention,\n      emailFound: toEmail !== null\n    }\n  }\n};"
+      },
+      "id": "17b6b455-ec38-4787-b38a-889b0681960a",
+      "name": "Analyze Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        2336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "is-send-translation",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "send_translation",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b381f728-90a3-412a-a531-e358e8471df1",
+      "name": "Is Send Translation?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2000,
+        2336
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1zid_kUKYTMmmKeiTutWunjT2sU2dcqDCAwoSnJivxU4",
+          "mode": "list",
+          "cachedResultName": "traduccion",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zid_kUKYTMmmKeiTutWunjT2sU2dcqDCAwoSnJivxU4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1zid_kUKYTMmmKeiTutWunjT2sU2dcqDCAwoSnJivxU4/edit#gid=0"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "specifyRange"
+            }
+          }
+        }
+      },
+      "id": "cfc53fa4-af55-445c-bb24-8788858ba144",
+      "name": "Read Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        2208,
+        2224
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "xw2ga8T1IxvQ0HzI",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener la última fila del Sheets\nconst items = $input.all();\n\nif (!items || items.length === 0) {\n  throw new Error('No hay traducciones guardadas');\n}\n\n// Tomar la última fila directamente (la más reciente)\nconst lastRow = items[items.length - 1].json;\n\n// Obtener el email y asunto del nodo Analyze Request\nconst analyzeData = $('Analyze Request').first().json;\nconst toEmail = analyzeData.toEmail || 'destinatario@example.com';\nconst customSubject = analyzeData.customSubject;\n\n// Intentar leer los datos usando diferentes posibles nombres (incluyendo MAYÚSCULAS)\nconst originalText = lastRow['Texto Original'] || lastRow['TEXTO ORIGINAL'] || lastRow.B || lastRow['B'] || '';\nconst translation = lastRow['Traducción'] || lastRow['Traduccion'] || lastRow['TRADUCCION'] || lastRow.C || lastRow['C'] || '';\nconst targetLang = lastRow['Idioma Destino'] || lastRow['IDIOMA DESTINO'] || lastRow.D || lastRow['D'] || '';\nconst timestamp = lastRow['Fecha'] || lastRow['FECHA'] || lastRow.A || lastRow['A'] || '';\nconst model = lastRow['Modelo'] || lastRow['MODELO'] || lastRow.E || lastRow['E'] || '';\n\n// Generar saludo por defecto según idioma destino si no hay asunto personalizado\nconst greetings = {\n  'inglés': 'Hello!',\n  'ingles': 'Hello!',\n  'english': 'Hello!',\n  'español': '¡Hola!',\n  'espanol': '¡Hola!',\n  'spanish': '¡Hola!',\n  'francés': 'Bonjour!',\n  'frances': 'Bonjour!',\n  'french': 'Bonjour!',\n  'alemán': 'Guten Tag!',\n  'aleman': 'Guten Tag!',\n  'german': 'Guten Tag!',\n  'portugués': 'Olá!',\n  'portugues': 'Olá!',\n  'portuguese': 'Olá!',\n  'italiano': 'Ciao!',\n  'italian': 'Ciao!',\n  'chino': '你好!',\n  'chinese': '你好!',\n  'japonés': 'こんにちは!',\n  'japones': 'こんにちは!',\n  'japanese': 'こんにちは!'\n};\n\nconst defaultGreeting = greetings[targetLang.toLowerCase()] || 'Hello!';\nconst subject = customSubject || defaultGreeting;\n\nreturn {\n  json: {\n    originalText: originalText,\n    translation: translation,\n    targetLang: targetLang,\n    timestamp: timestamp,\n    model: model,\n    toEmail: toEmail,\n    subject: subject\n  },\n  pairedItem: items[items.length - 1].pairedItem\n};"
+      },
+      "id": "95d8c009-d783-40f4-a754-29c0b279d69b",
+      "name": "Get Last Translation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2448,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.toEmail || 'destinatario@example.com' }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.translation }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "38636c1c-c088-4526-921f-07c3b1614494",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2656,
+        2224
+      ],
+      "webhookId": "38d367c6-a035-42e0-9ad8-c6b43455fea5",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kKl3FKiaSkSVumDI",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { response: '✅ Email enviado a ' + $('Get Last Translation').item.json.toEmail + ' con la última traducción.' } }}",
+        "options": {}
+      },
+      "id": "83c6f650-eb97-40f9-b86a-c630fdc95f1c",
+      "name": "Respond Email Sent",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2816,
+        2224
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": \"qwen3:4b\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un asistente amigable. Puedes ayudar con consultas generales. Si alguien quiere enviar una traducción por email, debe especificar el correo del destinatario.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $('Analyze Request').item.json.message\n    }\n  ],\n  \"stream\": false\n} }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "bfe60708-cf76-47d0-9596-d6e204ff8d06",
+      "name": "Call Ollama Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2208,
+        2432
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { response: $json.message.content || 'Lo siento, no pude generar una respuesta.' } }}",
+        "options": {}
+      },
+      "id": "7a90d8ec-8a6a-4097-833a-4e150da4c4ff",
+      "name": "Respond Chat",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2432,
+        2432
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Translate": {
+      "main": [
+        [
+          {
+            "node": "Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Call Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Respond Translation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Chat": {
+      "main": [
+        [
+          {
+            "node": "Analyze Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Request": {
+      "main": [
+        [
+          {
+            "node": "Is Send Translation?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Send Translation?": {
+      "main": [
+        [
+          {
+            "node": "Read Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Call Ollama Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Get Last Translation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Last Translation": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond Email Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama Chat": {
+      "main": [
+        [
+          {
+            "node": "Respond Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "0fe08bf9-19d5-4850-8562-de496196e606",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b61b6ddadb0751a44cc15a4e9c0588f6cacb4ba148ab436755d14d8d62d1af5b"
+  },
+  "id": "YVrYD4zJ4KChuQ4n7POdi",
+  "tags": []
+}

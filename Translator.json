@@ -1,0 +1,233 @@
+{
+  "name": "Translator - Direct Ollama",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "translate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-translate",
+      "name": "Webhook Translate",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [240, 300],
+      "webhookId": "translator-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "original_text",
+              "name": "original_text",
+              "value": "={{ $json.body.prompt.match(/Texto a traducir: (.+)$/s)?.[1]?.trim() || $json.body.prompt.split('\\n').pop()?.trim() || $json.body.prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "target_lang",
+              "name": "target_lang",
+              "value": "={{ $json.body.prompt.match(/al idioma ([\\wáéíóúñ]+)/i)?.[1] || 'desconocido' }}",
+              "type": "string"
+            },
+            {
+              "id": "full_prompt",
+              "name": "full_prompt",
+              "value": "={{ $json.body.prompt }}",
+              "type": "string"
+            },
+            {
+              "id": "model",
+              "name": "model",
+              "value": "={{ $json.body.model || 'qwen2.5:0.5b' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-data",
+      "name": "Extract Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:11434/api/chat",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  \"model\": $json.model,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un traductor profesional. Tu tarea es traducir el texto que te proporcionen al idioma solicitado. Responde ÚNICAMENTE con la traducción, sin explicaciones adicionales.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": $json.full_prompt\n    }\n  ],\n  \"stream\": false\n} }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ollama-request",
+      "name": "Call Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "Fecha",
+              "name": "Fecha",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "Texto Original",
+              "name": "Texto Original",
+              "value": "={{ $('Extract Data').item.json.original_text }}",
+              "type": "string"
+            },
+            {
+              "id": "Traducción",
+              "name": "Traducción",
+              "value": "={{ $json.message.content }}",
+              "type": "string"
+            },
+            {
+              "id": "Idioma Destino",
+              "name": "Idioma Destino",
+              "value": "={{ $('Extract Data').item.json.target_lang }}",
+              "type": "string"
+            },
+            {
+              "id": "Modelo",
+              "name": "Modelo",
+              "value": "={{ $('Extract Data').item.json.model }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prepare-sheet-data",
+      "name": "Prepare Sheet Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "list",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "A": "={{ $json['Fecha'] }}",
+            "B": "={{ $json['Texto Original'] }}",
+            "C": "={{ $json['Traducción'] }}",
+            "D": "={{ $json['Idioma Destino'] }}",
+            "E": "={{ $json['Modelo'] }}"
+          },
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "save-to-sheets",
+      "name": "Save to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [1120, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "google-sheets-cred",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { response: $('Prepare Sheet Data').item.json['Traducción'] || 'Error en traducción' } }}",
+        "options": {}
+      },
+      "id": "respond-translation",
+      "name": "Respond Translation",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1340, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Translate": {
+      "main": [
+        [
+          {
+            "node": "Extract Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Data": {
+      "main": [
+        [
+          {
+            "node": "Call Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Ollama": {
+      "main": [
+        [
+          {
+            "node": "Prepare Sheet Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheet Data": {
+      "main": [
+        [
+          {
+            "node": "Save to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Respond Translation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "translator-direct-v1",
+  "id": "TranslatorDirectOllama",
+  "tags": []
+}
