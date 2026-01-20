@@ -748,6 +748,27 @@
   </div>
 
   <script>
+    // ============================================
+    // CONFIGURACIÓN DE WEBHOOKS (ENTORNO)
+    // ============================================
+    const isLocalhost = window.location.hostname === 'localhost' || 
+                        window.location.hostname === '127.0.0.1' ||
+                        window.location.hostname === '';
+
+    const WEBHOOKS = isLocalhost ? {
+      translate: '/webhook/translate',
+      chat: '/webhook/chat'
+    } : {
+      translate: 'https://sihat.app.n8n.cloud/webhook/translate',
+      chat: 'https://sihat.app.n8n.cloud/webhook/chat'
+    };
+
+    console.log('🌐 Entorno detectado:', isLocalhost ? 'LOCAL' : 'NUBE');
+    console.log('📡 Webhooks:', WEBHOOKS);
+
+    // ============================================
+    // RESTO DEL CÓDIGO
+    // ============================================
     // Configuración: Las peticiones van al mismo servidor (proxy automático)
     // En local: http://localhost:8080/api/chat
     // En ngrok: https://tu-url.ngrok-free.app/api/chat
@@ -848,7 +869,7 @@
         // Llamada a n8n webhook para traducción con Ollama
         const prompt = `Eres un traductor profesional. Traduce el siguiente texto al idioma ${targetLang}. Responde ÚNICAMENTE con la traducción, sin explicaciones, sin comentarios adicionales, solo el texto traducido.\n\nTexto a traducir: ${text}`;
         
-        const res = await fetch("/webhook/translate", {
+        const res = await fetch(WEBHOOKS.translate, {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -1019,8 +1040,8 @@
 
       try {
         // Llamada a n8n webhook para chat
-        console.log("📤 Enviando a /webhook/chat:", userMessage);
-        const response = await fetch("/webhook/chat", {
+        console.log("📤 Enviando a webhook chat:", userMessage);
+        const response = await fetch(WEBHOOKS.chat, {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
