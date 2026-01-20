@@ -173,12 +173,14 @@
     cursor:pointer;
     display:inline-flex;
     align-items:center;
+    justify-content:center;
     gap:8px;
     color: #fff;
     background: #2563eb;
     box-shadow: 0 2px 8px rgba(37,99,235,.2);
     transition: all .2s ease;
     user-select:none;
+    min-width: 120px;
   }
   .btn:hover{ 
     background: #1d4ed8;
@@ -196,6 +198,8 @@
     color: var(--text);
     border: 1px solid var(--stroke);
     box-shadow: none;
+    padding: 6px 10px;
+    font-size: 12px;
   }
   .btn.secondary:hover{
     background: rgba(255,255,255,.12);
@@ -247,7 +251,7 @@
     border: 1px solid var(--stroke);
     border-radius: var(--radius2);
     padding: 16px;
-    min-height: 240px;
+    min-height: 280px;
     display:flex;
     flex-direction:column;
     gap: 12px;
@@ -262,7 +266,8 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:10px;
+    gap:8px;
+    min-height: 32px;
   }
   .small{
     font-size: 11px;
@@ -273,8 +278,8 @@
   textarea{
     width:100%;
     flex: 1;
-    resize: vertical;
-    min-height: 160px;
+    resize: none;
+    min-height: 200px;
     padding: 14px;
     border-radius: var(--radius2);
     border: 1px solid var(--stroke);
@@ -297,8 +302,9 @@
     background: rgba(15,20,25,.6);
     white-space: pre-wrap;
     overflow:auto;
-    min-height: 160px;
+    min-height: 200px;
     line-height: 1.5;
+    font-size: 14px;
   }
 
   .status{
@@ -636,7 +642,7 @@
 </head>
 
 <body>
-  <div class="version">v3.05</div>
+  <div class="version">v3.12</div>
   
   <div class="wrap">
     <div class="top">
@@ -653,12 +659,6 @@
     <div class="card">
       <div class="toolbar">
         <div class="controls">
-          <label for="backend">Backend</label>
-          <select id="backend" title="Motor de traducción">
-            <option value="ollama">Ollama IA</option>
-            <option value="n8n">n8n Workflow</option>
-          </select>
-
           <label for="target">Idioma destino</label>
           <select id="target" title="Idioma destino">
             <option value="es">Español (es)</option>
@@ -674,7 +674,7 @@
             <span id="btnText">Traducir</span>
           </button>
 
-          <button class="btn secondary" id="btnClear" type="button">Limpiar</button>
+          <button class="btn ghost" id="btnClear" type="button">Limpiar</button>
 
           <!-- Botón WhatsApp -->
           <button class="btn whatsapp" id="shareWa" type="button" title="Compartir por WhatsApp">
@@ -765,17 +765,6 @@
     const statusRight = $("statusRight");
     const charCount = $("charCount");
     const toast = $("toast");
-    const backendSelect = $("backend");
-
-    // Actualizar indicador al cambiar backend
-    backendSelect.addEventListener("change", () => {
-      const backend = backendSelect.value;
-      if (backend === "ollama") {
-        statusRight.textContent = "Fuente: Ollama (gemma3:1b) - Modo Rápido";
-      } else {
-        statusRight.textContent = "Fuente: n8n Workflow - Personalizado";
-      }
-    });
 
     function toastShow(msg){
       toast.textContent = msg;
@@ -811,17 +800,24 @@
       }
     });
 
-    // ✅ Compartir por WhatsApp (SOLO EL LINK)
+    // ✅ Compartir traducción por WhatsApp
     $("shareWa").addEventListener("click", () => {
-      const url = window.location.href;  // esto será tu link de GitHub Pages
-      const waUrl = "https://wa.me/?text=" + encodeURIComponent(url);
+      const translation = out.textContent.trim();
+      
+      if (!translation) {
+        toastShow("No hay traducción para compartir");
+        return;
+      }
+      
+      const url = window.location.href;
+      const message = `${translation}\n\nTraducido mediante el servicio ${url}`;
+      const waUrl = "https://wa.me/?text=" + encodeURIComponent(message);
       window.open(waUrl, "_blank");
     });
 
     btn.addEventListener("click", async () => {
       const text = $("text").value.trim();
       const target = $("target").value;
-      const backend = backendSelect.value;
 
       if (!text){
         out.innerHTML = "<span style='color: var(--danger); font-weight:700;'>Escribe un texto para traducir.</span>";
@@ -830,7 +826,7 @@
       }
 
       setLoading(true);
-      statusLeft.textContent = backend === "ollama" ? "Traduciendo con IA..." : "Procesando con n8n...";
+      statusLeft.textContent = "Traduciendo con IA...";
 
       try{
         // Mapa de códigos de idioma a nombres completos
@@ -849,11 +845,8 @@
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos
 
-        let res, translation;
-
-        if (backend === "ollama") {
-          // Llamada a Ollama para traducción
-          res = await fetch(getApiUrl("/api/chat"), {
+        // Llamada a Ollama para traducción
+        const res = await fetch(getApiUrl("/api/chat"), {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -884,40 +877,10 @@
           statusLeft.innerHTML = "<span class='error'>Error " + res.status + "</span>";
         } else {
           const data = await res.json();
-          translation = data.message?.content || "(sin traducción)";
+          const translation = data.message?.content || "(sin traducción)";
           out.textContent = translation;
           statusLeft.innerHTML = "<span class='ok'>✓</span> Traducido a <b>"+ targetLang +"</b>";
         }
-      } else {
-        // Llamada a n8n webhook
-        // NOTA: Debes crear un workflow en n8n con un webhook que acepte {text, target}
-        res = await fetch("/webhook/traducir", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            text: text,
-            target: target,
-            targetLang: targetLang
-          }),
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok){
-          const errorText = await res.text().catch(() => "");
-          console.error("Error n8n:", res.status, res.statusText, errorText);
-          out.innerHTML = "<span class='error'>Error en n8n (" + res.status + "): " + (errorText || "Workflow no configurado") + "</span>";
-          statusLeft.innerHTML = "<span class='error'>Error n8n</span>";
-        } else {
-          const data = await res.json();
-          translation = data.translation || data.result || data.text || "(sin traducción)";
-          out.textContent = translation;
-          statusLeft.innerHTML = "<span class='ok'>✓</span> Traducido con n8n a <b>"+ targetLang +"</b>";
-        }
-      }
       }catch(e){
         console.error("Error de traducción completo:", e);
         if (e.name === 'AbortError') {
@@ -1015,7 +978,7 @@
       }
     });
 
-    // Función para enviar mensaje a Ollama
+    // Función para enviar mensaje a n8n
     chatSend.addEventListener("click", async function(){
       const message = chatInput.value.trim();
       if(!message) return;
@@ -1049,25 +1012,15 @@
       chatMessages.scrollTop = chatMessages.scrollHeight;
 
       try {
-        // Llamada a Ollama
-        const response = await fetch(getApiUrl("/api/chat"), {
+        // Llamada a n8n webhook para chat
+        const response = await fetch("/webhook/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            model: "gemma3:1b",
-            messages: [
-              {
-                role: "system",
-                content: "Eres un asistente útil del Traductor n8n + IA. Ayudas a los usuarios con preguntas sobre cómo usar el traductor, los idiomas disponibles, y cualquier duda relacionada con la aplicación. Responde de manera amigable y concisa."
-              },
-              {
-                role: "user",
-                content: message
-              }
-            ],
-            stream: false
+            message: userMessage,
+            context: "Traductor n8n + IA"
           })
         });
 
@@ -1077,7 +1030,7 @@
 
         if(response.ok){
           const data = await response.json();
-          const aiResponse = data.message?.content || "Lo siento, no pude generar una respuesta.";
+          const aiResponse = data.response || data.message || data.text || "Lo siento, no pude generar una respuesta.";
           addMessage(aiResponse);
         } else {
           addMessage("Lo siento, hubo un error al conectar con el servidor. Por favor intenta nuevamente.");
@@ -1086,7 +1039,7 @@
         console.error("Error:", error);
         const typing = document.getElementById("typing-indicator");
         if(typing) typing.remove();
-        addMessage("No pude conectarme al servidor. Verifica que el servicio de Ollama esté activo.");
+        addMessage("No pude conectarme al servidor. Verifica que n8n esté activo y el workflow configurado.");
       } finally {
         chatSend.disabled = false;
       }
